@@ -1,0 +1,65 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: gamelift-daemonset
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: gamelift-daemonset
+  template:
+    metadata:
+      labels:
+        name: gamelift-daemonset
+    spec:
+      tolerations:
+        - operator: Exists
+      containers:
+      - name: gamelift-daemonset
+        image: jicowan/jicowan_gamelift-daemon
+        env:
+          - name: "PYTHONUNBUFFERED"
+            value: "1"
+          - name: "PYTHONIOENCODING"
+            value: "UTF-8"
+          - name: "AWS_REGION"
+            value: "us-west-2"
+          - name: "GAME_SERVER_GROUP_NAME"
+            value: "agones-game-servers"
+          - name: "REDIS_URL"
+            value: "gameliftcache.hmhiju.ng.0001.usw2.cache.amazonaws.com:6379"
+        args:
+          - "--failure-threshold=2"
+          - "--healthcheck-interval=30"
+      nodeSelector:
+        role: game-servers
+      serviceAccount: gamelift-daemonset
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gamelift-daemonset
+rules:
+- apiGroups: [""]
+  resources: ["nodes"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["pods", "pods/eviction"]
+  verbs: ["*"]
+- apiGroups: ["agones.dev"]
+  resources: ["gameservers"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gamelift-daemonset
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gamelift-daemonset
+subjects:
+- kind: ServiceAccount
+  name: gamelift-daemonset
+  namespace: kube-system
