@@ -7,12 +7,25 @@ This project allows you to run containerized game servers on Spot instances whil
 [Agones](https://agones.dev/site/) provides lifecycle management operations for running containerized game servers on Kubernetes. This project was specifically designed to work with Agones running on Amazon EKS or a self-managed Kubernetes cluster running in AWS Cloud.
 
 ### The daemonset
-The daemonset is an "agent" that runs on worker nodes that have been designated to run containerized game servers, i.e. instances with the `role=game-servers` label. On EKS, labels can be automatically added to instances by modifying the kubelet parametes in the instance's [user data](https://aws.amazon.com/blogs/opensource/improvements-eks-worker-node-provisioning/) or by modifying the launch template referenced by the ASG for the game server node group. When the daemonset starts, it immediately registers the instance with Gamelift FleetIQ, runs ClaimGameServer, and calls [UpdateGameServer](https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateGameServer.html#API_UpdateGameServer_RequestSyntax) 1x per minute thereafter to keep the instance healthy. 
+The daemonset is an "agent" that runs on worker nodes that have been designated to run containerized game servers, i.e. instances with the `role=game-servers` label. On EKS, labels can be automatically added to instances by modifying the kubelet parametes in the instance's [user data](https://aws.amazon.com/blogs/opensource/improvements-eks-worker-node-provisioning/) or by modifying the launch template referenced by the ASG for the game server node group. When the daemonset starts, it immediately registers the instance with Gamelift FleetIQ, runs ClaimGameServer, and calls [UpdateGameServer](https://docs.aws.amazon.com/gamelift/latest/apireference/API_UpdateGameServer.html#API_UpdateGameServer_RequestSyntax) 1x per minute thereafter to keep the instance healthy. It also starts polling a Redis channel 1x per minute. The instance's [InstanceStatus](https://docs.aws.amazon.com/gamelift/latest/apireference/API_GameServerInstance.html#gamelift-Type-GameServerInstance-InstanceStatus) is communicated to the daemon across this channel. When the instance status changes from `ACTIVE` to `DRAINING`, the daemon enumerates all of the Agones game servers running on the instance and adds a toleration to [allocated](https://agones.dev/site/docs/guides/client-sdks/#allocate) game servers. It then taints the node, forcing pods that do not have a toleration for the taint, i.e. un-allocated game servers, to be evicted. When the last allocated game server is [shutdown](https://agones.dev/site/docs/guides/client-sdks/#shutdown), the daemon calls [DeregisterGameServer](https://docs.aws.amazon.com/gamelift/latest/apireference/API_DeregisterGameServer.html) which deregisters the instance from FleetIQ and then waits for the instance to be terminated.
 
 ### The pubsub application
+The pubsub application runs a loop that calls [DescribeGameServerInstances](https://docs.aws.amazon.com/gamelift/latest/apireference/API_DescribeGameServerInstances.html), parses the results, and publishes the status for each instance to a Redis channel for that instance. Although we could built the daemon to call `DescribeGameServerInstances` directly, we chose to use a pub/sub model to avoid exceeded the rate limit for the Gamelift APIs. 
 
-* Change the title in this README
-* Edit your repository description on GitHub
+The pubsub application supports _n_ [game server groups](https://docs.aws.amazon.com/gamelift/latest/fleetiqguide/gsg-integrate-gameservergroup.html). On startup, the application reads the list of game server groups from the `fleetiqconfig` ConfigMap. 
+
+```yaml
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: fleetiqconfig
+  namespace: default
+data:
+  fleetiq.conf: '{"GameServerGroups": [ "agones-game-servers" ]}'
+```
+
+### Redis
+Redis is used to publish `InstanceStatus` to a channel for each instance. We elected to use Redis instead of SNS to avoid taking a dependency on another AWS service. That said, you can use Redis ElastiCache as your Redis endpoint or you can choose to run it locally in your Kubernetes cluster. The Redis endpoint can be configured by updating the `REDIS_URL` environment variable for the pubsub application and the daemonset.
 
 ## Security
 
