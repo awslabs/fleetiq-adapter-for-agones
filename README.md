@@ -29,6 +29,14 @@ data:
 ### Redis
 Redis is used to publish `InstanceStatus` to a channel for each instance. We elected to use Redis instead of SNS to avoid taking a dependency on another AWS service. That said, you can use Redis ElastiCache as your Redis endpoint or you can choose to run it locally in your Kubernetes cluster. The Redis endpoint can be configured by updating the `REDIS_URL` environment variable for the pubsub application and the daemonset.
 
+## Installation
+Please follow the instructions in the [FleetIQ ESK Agones Integration Guide](https://github.com/awslabs/fleetiq-adapter-for-agones/blob/master/FleetIQ%20EKS%20Agones%20Integration%20Guide%20%5BBETA%5D.docx) to install the solution. 
+
+> We recommend that you build the images for the daemonset and the pubsub application from the Dockerfiles in this repository. Be aware that you will need to update the daemonset and deployment manifests with the appropriate image URIs if you do.
+
+## Issues
+If you have an issue with the Guide or with any of the solution's components, please file an [issue](https://github.com/awslabs/fleetiq-adapter-for-agones/issues/new/choose). 
+
 ## Security
 
 See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
