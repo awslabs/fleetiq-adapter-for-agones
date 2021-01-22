@@ -1,6 +1,6 @@
 ## Introduction
 
-This project allows you to run containerized game servers on Spot instances while decreasing the likelihood of Spot interruptions. Interruptions are minimized by using [Gamelift FleetIQ](https://docs.aws.amazon.com/gamelift/latest/fleetiqguide/gsg-intro.html) which will periodically adjust the instance types used by an AWS Autoscaling Group (ASG) using an algorithm that assesses an instance's viability. Instances with [claimed](https://docs.aws.amazon.com/gamelift/latest/apireference/API_ClaimGameServer.html) game servers are temporarily protected from termination.
+This project allows you to run containerized game servers on Spot instances while decreasing the likelihood of Spot interruptions. Interruptions are minimized by using [Gamelift FleetIQ](https://docs.aws.amazon.com/gamelift/latest/fleetiqguide/gsg-intro.html) which periodically adjusts the instance types used by an AWS Autoscaling Group (ASG) using an algorithm that assesses an instance's viability. Instances with [claimed](https://docs.aws.amazon.com/gamelift/latest/apireference/API_ClaimGameServer.html) game servers are temporarily protected from termination.
 
 ## Components
 ### Agones
