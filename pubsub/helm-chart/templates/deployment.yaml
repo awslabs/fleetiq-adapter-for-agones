@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: pubsubv2
-        image: jicowan/pubsubv2
+        image: "{{ .Values.container.image}}:{{ .Values.container.tag | default "latest" }}"
         env:
           - name: "REDIS_URL"
             value: {{ .Release.Name }}-redis-master.default.svc.cluster.local

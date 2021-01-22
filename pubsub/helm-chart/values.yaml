@@ -4,6 +4,10 @@
 
 aws: 
   region: us-west-2
+
+container: 
+  image: jicowan/pubsubv2
+  tag: latest
   
 redis: 
   tls:
