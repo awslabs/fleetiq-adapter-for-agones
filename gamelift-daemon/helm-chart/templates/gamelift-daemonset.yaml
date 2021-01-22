@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Release.Name }}-daemonset
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        name: {{ .Release.Name }}
+    spec:
+      tolerations:
+        - operator: Exists
+      containers:
+      - name: gamelift-daemon
+        image: "{{ .Values.container.image}}:{{ .Values.container.tag | default "latest" }}"
+        env:
+          - name: "PYTHONUNBUFFERED"
+            value: "1"
+          - name: "PYTHONIOENCODING"
+            value: "UTF-8"
+          - name: "AWS_REGION"
+            value: {{ .Values.aws.region }}
+          - name: "GAME_SERVER_GROUP_NAME"
+            value: {{ .Values.gameliftDaemon.gameServerGroupName }}
+          - name: "REDIS_URL"
+            value: {{ .Values.fleetiq.redisurl }}
+        args:
+        {{- with .Values.gameliftDaemon }}
+          - --failure-threshold={{ .failureThreshold }}
+          - --healthcheck-interval={{ .healthcheckInterval}}
+      nodeSelector:
+        role: {{ .nodeSelector | default "game-servers" }}
+      serviceAccount: {{ .serviceAccount }}
+      {{- end}}

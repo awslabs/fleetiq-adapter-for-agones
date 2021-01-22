@@ -1,0 +1,25 @@
+# Default values for gamelift-daemonset.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+aws: 
+  region: us-west-2
+
+container: 
+  image: jicowan/jicowan_gamelift-daemon
+  tag: latest
+
+fleetiq:
+  redisurl: gamelift-common-services-redis-master.default.svc.cluster.local
+
+gameliftDaemon:
+  gameServerGroupName: agones-game-servers
+  failureThreshold: 2
+  healthcheckInterval: 60
+  nodeSelector: game-servers
+  serviceAccount: gamelift-daemon
+
+redis: 
+  tls:
+    authClients: false
+  usePassword: false

@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pubsubv2
+  labels:
+    app: pubsubv2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pubsubv2
+  template:
+    metadata:
+      labels:
+        app: pubsubv2
+    spec:
+      containers:
+      - name: pubsubv2
+        image: jicowan/pubsubv2
+        env:
+          - name: "REDIS_URL"
+            value: {{ .Release.Name }}-redis-master.default.svc.cluster.local
+          - name: "AWS_REGION"
+            value: {{ .Values.aws.region }}
+        volumeMounts:
+          - name: config
+            mountPath: /etc/fleetiq/
+            readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: fleetiqconfig
+      serviceAccount: fleetiq
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fleetiq
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: configmap-reader
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["fleetiqconfig"]
+  verbs: ["get", "watch", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: configmap-reader
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: fleetiq
+  namespace: default
+roleRef:
+  kind: Role
+  name: configmap-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: fleetiqconfig
+  namespace: default
+data:
+  fleetiq.conf: '{"GameServerGroups": [ "agones-game-server-group-01" ]}'
