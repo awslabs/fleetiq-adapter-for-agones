@@ -20,3 +20,4 @@ helm install \
 --set aws.region=${AWS_REGION} \
 gamelift-common-services ./gamelift-common-services/
 ```
+> If the pod crashes, verify your Game Server Groups appear in the fleetiqconfig ConfigMap. 
