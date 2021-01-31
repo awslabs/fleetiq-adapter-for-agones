@@ -28,6 +28,8 @@ data:
 
 The instructions for installing the pubsub application, along with Redis, can be found [here](https://github.com/awslabs/fleetiq-adapter-for-agones/tree/master/pubsub). 
 
+> The pubsub application and Redis should be installed prior to the gamelift daemon.
+
 ### Redis
 Redis is used to publish `InstanceStatus` to a channel for each instance. We elected to use Redis instead of SNS to avoid taking a dependency on another AWS service. That said, you can use Redis ElastiCache as your Redis endpoint or you can choose to run it locally in your Kubernetes cluster. The Redis endpoint can be configured by updating the `REDIS_URL` environment variable for the pubsub application and the daemonset.
 
