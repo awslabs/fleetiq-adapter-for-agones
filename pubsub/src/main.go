@@ -8,20 +8,28 @@ import (
 	"github.com/go-redis/redis"
 	"io/ioutil"
 	"log"
+	"main/configmap"
 	"os"
 	"time"
 )
 
 const port = "6379"
 
+//const password = "foobared"
+
 type Groups struct {
 	GameServerGroups []string
 }
 
 func main() {
+	err := configmap.CanRead()
+	if err != nil {
+		log.Fatal("Could not read from ConfigMap. Verify the ConfigMap exists and that the pod's ServiceAccount"+
+			"is bound to a role that grants access to the ConfigMap", err)
+	}
 	bs, err := ioutil.ReadFile("/etc/fleetiq/fleetiq.conf")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Could not read from ConfigMap. Verify the pod is mounting the ConfigMap to /etc/fleetiq/", err)
 	}
 	var g Groups
 	if err := json.Unmarshal(bs, &g); err != nil {
@@ -32,8 +40,8 @@ func main() {
 
 func publish(g Groups) {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("REDIS_URL") + ":" + port,
-		//Password: "foobared",
+		Addr: os.Getenv("REDIS_URL") + ":" + port,
+		//Password: password,
 	})
 	sess := session.Must(session.NewSession(&aws.Config{Region: aws.String(os.Getenv("AWS_REGION"))}))
 	svc := gamelift.New(sess)
