@@ -8,6 +8,7 @@ import (
 )
 
 func CanRead() error {
+	ctx := context.Background()
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		log.Fatal(err.Error())
@@ -17,7 +18,7 @@ func CanRead() error {
 	if err != nil {
 		log.Fatal(err.Error())
 	}
-	_, err = clientset.CoreV1().ConfigMaps("default").Get("fleetiqconfig", metav1.GetOptions{})
+	_, err = clientset.CoreV1().ConfigMaps("default").Get(ctx, "fleetiqconfig", metav1.GetOptions{})
 	if err != nil {
 		return err
 	} else {
