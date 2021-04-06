@@ -5,10 +5,10 @@ EKSCLUSTERNAME=agones
 AVAILABILITYZONES=["${AWS_REGION}a","${AWS_REGION}b","${AWS_REGION}c"]
 FLEETIQREADPOLICYNAME=FleetIQpermissionsEC2
 CLUSTERCONFIGFILENAME=config
-NODEGROUP0NAME=ng-0
+NODEGROUP0NAME=ng-system
 NODEGROUP0INSTANCETYPE=m5.large
-NODEGROUP0INSTANCECAPACITY=1
-NODEGROUP1NAME=ng-1
+NODEGROUP0INSTANCECAPACITY=2
+NODEGROUP1NAME=ng-agones
 NODEGROUP1INSTANCETYPE=m5.xlarge
 NODEGROUP1INSTANCECAPACITY=2
 #Part 3 Script variables
@@ -16,10 +16,10 @@ BASEUSERDATAFILENAME=launchtemplate
 MODIFIEDUSERDATAFILENAME=modlaunchtemplate
 B64USERDATAFILENAME=b64modlaunchtemplate
 SGDESCRIPTION=Agones_nodegroup_SG
-SGNAME=eksctl-"${EKSCLUSTERNAME}"-nodegroup-ng-2-SG
+SGNAME=eksctl-"${EKSCLUSTERNAME}"-nodegroup-ng-1-SG
 SGINGRESSRULESFILENAME=sgingress
 LTINPUTFILENAME=ltinput
-LTNAME=eksctl-"${EKSCLUSTERNAME}"-nodegroup-ng-2
+LTNAME=eksctl-"${EKSCLUSTERNAME}"-nodegroup-ng-1
 LTDESCRIPTION=FleetIQ_GameServerGroup_LT
 VOLUMESIZE=80
 VOLUMETYPE="gp2"
@@ -28,7 +28,7 @@ GAMESERVERGROUPFILENAME=gsgconfig
 GSGMINSIZE=1
 GSGMAXSIZE=10
 GSGINSTANCEDEFINITIONS='[{'\"'InstanceType'\"': '\"'c4.large'\"','\"'WeightedCapacity'\"': '\"'2'\"'},{'\"'InstanceType'\"': '\"'c4.2xlarge'\"','\"'WeightedCapacity'\"': '\"'1'\"'}]'
-GSGNAME=agones-game-servers
+GSGNAME=agones-game-server-group-01
 CAPOLICYFILENAME=capolicy
 CAPOLICYNAME=cluster-autoscaler-policy
 CAMANIFESTFILENAME=camanifest
@@ -85,8 +85,17 @@ echo $(eksctl version)
 
 echo "[7/22] Create FleetIQ read policy"
 
-echo $(aws iam create-policy --policy-name ${FLEETIQREADPOLICYNAME} --policy-document '{"Version": "2012-10-17","Statement": [{"Sid": "VisualEditor0","Effect": "Allow","Action": ["gamelift:DescribeGameServerGroup","gamelift:DescribeGameServerInstances","gamelift:DescribeGameServer"],"Resource": "*"}]}')
+# echo $(aws iam create-policy --policy-name ${FLEETIQREADPOLICYNAME} --policy-document '{"Version": "2012-10-17","Statement": [{"Sid": "VisualEditor0","Effect": "Allow","Action": ["gamelift:DescribeGameServerGroup","gamelift:DescribeGameServerInstances","gamelift:DescribeGameServer"],"Resource": "*"}]}')
 
+# IAM tends to be verbose about resources existing which can lead to interesting variable values, so we're checking if these resources exist first
+TESTEXISTS=$((aws iam get-policy --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/${FLEETIQREADPOLICYNAME} | jq '.Policy.Arn') 2>&1)
+TESTARN='"'arn:aws:iam::${ACCOUNT_ID}:policy/${FLEETIQREADPOLICYNAME}'"'
+if [ "${TESTEXISTS}" = "${TESTARN}" ]
+then
+  echo "Policy already exists, reusing existing policy"
+else
+  FLEETIQROLEPOLICYARN=$((aws iam create-policy --policy-name ${FLEETIQREADPOLICYNAME} --policy-document '{"Version": "2012-10-17","Statement": [{"Sid": "VisualEditor0","Effect": "Allow","Action": ["gamelift:DescribeGameServerGroup","gamelift:DescribeGameServerInstances","gamelift:DescribeGameServer"],"Resource": "*"}]}' | jq '.Policy.Arn') 2>&1)
+fi
 echo "[8/22] Create deployment file"
 
 cat << EOF > ${CLUSTERCONFIGFILENAME}.yaml
@@ -97,7 +106,7 @@ kind: ClusterConfig
 metadata:
   name: ${EKSCLUSTERNAME}
   region: ${AWS_REGION}
-  version: "1.16"
+  version: "1.18"
 
 availabilityZones: ${AVAILABILITYZONES}
 
@@ -110,6 +119,7 @@ nodeGroups:
         - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
         - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
         - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::${ACCOUNT_ID}:policy/${FLEETIQREADPOLICYNAME}
   - name: ${NODEGROUP1NAME}
     instanceType: ${NODEGROUP1INSTANCETYPE}
@@ -123,6 +133,7 @@ nodeGroups:
         - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
         - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
         - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::${ACCOUNT_ID}:policy/${FLEETIQREADPOLICYNAME}
 EOF
 
@@ -146,14 +157,14 @@ aws ec2 describe-launch-template-versions --region ${AWS_REGION} --launch-templa
 | jq -r '.LaunchTemplateVersions[0].LaunchTemplateData.UserData' \
 | base64 -d | gunzip > ${BASEUSERDATAFILENAME}.yaml
 
-awk -v var="$(grep -n NODE_LABELS=alpha ./${BASEUSERDATAFILENAME}.yaml | cut -d : -f 1)" 'NR==var {$0="    NODE_LABELS=alpha.eksctl.io/cluster-name=agones,alpha.eksctl.io/nodegroup-name=game-servers,role=game-servers"} 1' ${BASEUSERDATAFILENAME}.yaml > templt.yaml
+awk -v var="$(grep -n NODE_LABELS=alpha ./${BASEUSERDATAFILENAME}.yaml | cut -d : -f 1)" 'NR==var {$0="    NODE_LABELS=alpha.eksctl.io/cluster-name='$EKSCLUSTERNAME',alpha.eksctl.io/nodegroup-name=game-servers,role=game-servers"} 1' ${BASEUSERDATAFILENAME}.yaml > templt.yaml
 awk -v var="$(grep -n NODE_TAINTS= ./${BASEUSERDATAFILENAME}.yaml | cut -d : -f 1)" 'NR==var {$0="    NODE_TAINTS=agones.dev/gameservers=true:NoExecute"} 1' templt.yaml > ${MODIFIEDUSERDATAFILENAME}.yaml
 rm templt.yaml
 base64 -w 0 ${MODIFIEDUSERDATAFILENAME}.yaml > ${B64USERDATAFILENAME}
 
 echo "[11/22] Creating the Launch Template"
 
-VPCID=$((aws ec2 describe-vpcs --region ${AWS_REGION} --filter Name=tag:alpha.eksctl.io/cluster-name,Values=agones | jq -r '.Vpcs[0].VpcId') 2>&1)
+VPCID=$((aws ec2 describe-vpcs --region ${AWS_REGION} --filter Name=tag:alpha.eksctl.io/cluster-name,Values=${EKSCLUSTERNAME} | jq -r '.Vpcs[0].VpcId') 2>&1)
 echo ${VPCID}
 
 SGID=$((aws ec2 create-security-group --description ${SGDESCRIPTION} --group-name ${SGNAME} --vpc-id ${VPCID} | jq -r '.GroupId') 2>&1)
@@ -222,11 +233,11 @@ ${NG0SG2},
 "ResourceType": "instance",
 "Tags": [
 {
-"Key": "kubernetes.io/cluster/agones",
+"Key": "kubernetes.io/cluster/${EKSCLUSTERNAME}",
 "Value": "owned"
 },
 {
-"Key": "k8s.io/cluster-autoscaler/agones",
+"Key": "k8s.io/cluster-autoscaler/${EKSCLUSTERNAME}",
 "Value": "enabled"
 },
 {
@@ -248,12 +259,23 @@ GSGLTID=$((aws ec2 create-launch-template --cli-input-json file://${LTINPUTFILEN
 
 echo "[12/22] Creating the FleetIQ Service Role"
 
-GSGROLEARN=$(( aws iam create-role --role-name ${GAMELIFTSERVERGROUPROLENAME} --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":["gamelift.amazonaws.com","autoscaling.amazonaws.com"]},"Action":"sts:AssumeRole"}]}' | jq '.Role.Arn' ) 2>&1)
-echo ${GSGROLEARN}
+#GSGROLEARN=$(( aws iam create-role --role-name ${GAMELIFTSERVERGROUPROLENAME} --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":["gamelift.amazonaws.com","autoscaling.amazonaws.com"]},"Action":"sts:AssumeRole"}]}' | jq '.Role.Arn' ) 2>&1)
+
+# IAM tends to be verbose about resources existing which can lead to interesting variable values, so we're checking if these resources exist first
+ROLETESTEXISTS=$((aws iam get-role --role-name ${GAMELIFTSERVERGROUPROLENAME} | jq '.Role.Arn') 2>&1)
+ROLETESTARN='"'arn:aws:iam::${ACCOUNT_ID}:role/${GAMELIFTSERVERGROUPROLENAME}'"'
+if [ "${ROLETESTEXISTS}" = "${ROLETESTARN}" ]
+then
+  echo "Role already exists, reusing existing role"
+else
+  GSGROLEARN=$(( aws iam create-role --role-name ${GAMELIFTSERVERGROUPROLENAME} --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":["gamelift.amazonaws.com","autoscaling.amazonaws.com"]},"Action":"sts:AssumeRole"}]}' | jq '.Role.Arn' ) 2>&1)
+fi
+
+echo "arn:aws:iam::533223665097:role/${GAMELIFTSERVERGROUPROLENAME}"
 
 aws iam attach-role-policy --role-name ${GAMELIFTSERVERGROUPROLENAME} --policy-arn arn:aws:iam::aws:policy/GameLiftGameServerGroupPolicy
 
-echo "[13/25]Creating the FleetIQ Game Server Group"
+echo "[13/22]Creating the FleetIQ Game Server Group"
 
 PUBLICSUBNETIDS=$((aws ec2 describe-subnets --filters Name=vpc-id,Values=$VPCID --region ${AWS_REGION} | jq '[.Subnets[] | {subnetid: .SubnetId, mapPublicIP: .MapPublicIpOnLaunch}]' | jq 'group_by(.mapPublicIP)' | jq '[.[1][].subnetid]') 2>&1)
 echo ${PUBLICSUBNETIDS}
@@ -261,7 +283,7 @@ echo ${PUBLICSUBNETIDS}
 cat << EOF > ${GAMESERVERGROUPFILENAME}.json
 {
 "GameServerGroupName": "${GSGNAME}",
-"RoleArn": ${GSGROLEARN},
+"RoleArn": "arn:aws:iam::533223665097:role/${GAMELIFTSERVERGROUPROLENAME}",
 "MinSize": ${GSGMINSIZE},
 "MaxSize": ${GSGMAXSIZE},
 "LaunchTemplate": {
@@ -289,7 +311,7 @@ done
 
 echo "[14/22] Tagging underlying AutoScaling Group"
 
-aws autoscaling create-or-update-tags --tags ResourceId=gamelift-gameservergroup-${GSGNAME},ResourceType=auto-scaling-group,Key=kubernetes.io/cluster/agones,Value=owned,PropagateAtLaunch=true ResourceId=gamelift-gameservergroup-${GSGNAME},ResourceType=auto-scaling-group,Key=k8s.io/cluster-autoscaler/agones,Value=enabled,PropagateAtLaunch=true ResourceId=gamelift-gameservergroup-${GSGNAME},ResourceType=auto-scaling-group,Key=Name,Value=FleetIQ,PropagateAtLaunch=true ResourceId=gamelift-gameservergroup-${GSGNAME},ResourceType=auto-scaling-group,Key=k8s.io/cluster-autoscaler/enabled,Value=true,PropagateAtLaunch=true --region ${AWS_REGION}
+aws autoscaling create-or-update-tags --tags ResourceId=gamelift-gameservergroup-${GSGNAME},ResourceType=auto-scaling-group,Key=kubernetes.io/cluster/${EKSCLUSTERNAME},Value=owned,PropagateAtLaunch=true ResourceId=gamelift-gameservergroup-${GSGNAME},ResourceType=auto-scaling-group,Key=k8s.io/cluster-autoscaler/${EKSCLUSTERNAME},Value=enabled,PropagateAtLaunch=true ResourceId=gamelift-gameservergroup-${GSGNAME},ResourceType=auto-scaling-group,Key=Name,Value=FleetIQ,PropagateAtLaunch=true ResourceId=gamelift-gameservergroup-${GSGNAME},ResourceType=auto-scaling-group,Key=k8s.io/cluster-autoscaler/enabled,Value=true,PropagateAtLaunch=true --region ${AWS_REGION}
 
 echo "[15/22] Creating OIDC endpoint for cluster"
 
@@ -317,7 +339,17 @@ cat << EOF > ${CAPOLICYFILENAME}.json
 }
 EOF
 
-aws iam create-policy --policy-name ${CAPOLICYNAME} --policy-document file://${CAPOLICYFILENAME}.json
+#aws iam create-policy --policy-name ${CAPOLICYNAME} --policy-document file://${CAPOLICYFILENAME}.json
+
+# IAM tends to be verbose about resources existing which can lead to interesting variable values, so we're checking if these resources exist first
+TESTCAEXISTS=$((aws iam get-policy --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/${CAPOLICYNAME} | jq '.Policy.Arn') 2>&1)
+TESTCAARN='"'arn:aws:iam::${ACCOUNT_ID}:policy/${CAPOLICYNAME}'"'
+if [ "${TESTCAEXISTS}" = "${TESTCAARN}" ]
+then
+  echo "Policy already exists, reusing existing policy"
+else
+  aws iam create-policy --policy-name ${CAPOLICYNAME} --policy-document file://${CAPOLICYFILENAME}.json
+fi
 
 eksctl create iamserviceaccount --cluster ${EKSCLUSTERNAME} --namespace kube-system --name cluster-autoscaler --attach-policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/${CAPOLICYNAME} --approve
 
@@ -405,7 +437,6 @@ rules:
     resources: ["configmaps"]
     resourceNames: ["cluster-autoscaler-status", "cluster-autoscaler-priority-expander"]
     verbs: ["delete", "get", "update", "watch"]
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -422,7 +453,6 @@ subjects:
   - kind: ServiceAccount
     name: cluster-autoscaler
     namespace: kube-system
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -440,7 +470,6 @@ subjects:
   - kind: ServiceAccount
     name: cluster-autoscaler
     namespace: kube-system
-
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -466,7 +495,7 @@ spec:
     spec:
       serviceAccountName: cluster-autoscaler
       containers:
-        - image: k8s.gcr.io/autoscaling/cluster-autoscaler:v1.16.5
+        - image: k8s.gcr.io/autoscaling/cluster-autoscaler:v1.18.3
           name: cluster-autoscaler
           resources:
             limits:
@@ -481,8 +510,8 @@ spec:
             - --stderrthreshold=info
             - --cloud-provider=aws
             - --skip-nodes-with-local-storage=false
-            - --expander=least-waste
-            - --node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/agones
+            - --expander=priority
+            - --nodes=0:10:gamelift-gameservergroup-${GSGNAME}
             - --balance-similar-node-groups
             - --skip-nodes-with-system-pods=false
           env:
@@ -497,7 +526,20 @@ spec:
         - name: ssl-certs
           hostPath:
             path: "/etc/ssl/certs/ca-bundle.crt"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-autoscaler-priority-expander
+  namespace: kube-system
+data:
+  priorities: |-
+    10:
+      - .*-non-existing-entry.*
+    20:
+      - gamelift-gameservergroup-${GSGNAME}
 EOF
+
 
 kubectl apply -f ${CAMANIFESTFILENAME}.yaml
 
@@ -526,23 +568,40 @@ cat << EOF > ${GAMELIFTDAEMONPOLICYFILENAME}.json
 }
 EOF
 
-aws iam create-policy --policy-name ${GAMELIFTDAEMONPOLICYNAME} --policy-document file://${GAMELIFTDAEMONPOLICYFILENAME}.json
+#aws iam create-policy --policy-name ${GAMELIFTDAEMONPOLICYNAME} --policy-document file://${GAMELIFTDAEMONPOLICYFILENAME}.json
+
+# IAM tends to be verbose about resources existing which can lead to interesting variable values, so we're checking if these resources exist first
+TESTGLEXISTS=$((aws iam get-policy --policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/${GAMELIFTDAEMONPOLICYNAME} | jq '.Policy.Arn') 2>&1)
+TESTGLARN='"'arn:aws:iam::${ACCOUNT_ID}:policy/${GAMELIFTDAEMONPOLICYNAME}'"'
+if [ "${TESTGLEXISTS}" = "${TESTGLARN}" ]
+then
+  echo "Policy already exists, reusing existing policy"
+else
+  aws iam create-policy --policy-name ${GAMELIFTDAEMONPOLICYNAME} --policy-document file://${GAMELIFTDAEMONPOLICYFILENAME}.json
+fi
 
 eksctl create iamserviceaccount --cluster ${EKSCLUSTERNAME} --name ${GAMELIFTDAEMONSERVICEACCOUNTNAME} --namespace kube-system --attach-policy-arn arn:aws:iam::${ACCOUNT_ID}:policy/${GAMELIFTDAEMONPOLICYNAME} --override-existing-serviceaccounts --approve
 
 echo "[20/22] Pulling the Helm chart from ECR and installation"
 
 export HELM_EXPERIMENTAL_OCI=1
+COMMONREGISTRYURL=820537372947.dkr.ecr.us-west-2.amazonaws.com
+COMMONREGISTRYNAME=gamelift-common-services
+COMMONREGISTRYVERSION=0.1.0
 DAEMONSETREGISTRYURL=820537372947.dkr.ecr.us-west-2.amazonaws.com
 DAEMONSETREGISTRYNAME=gamelift-daemon
-DAEMONSETREGISTRYVERSION=0.1.0
+DAEMONSETREGISTRYVERSION=0.1.1
+
 
 aws ecr get-login-password --region us-west-2 | helm registry login --username AWS --password-stdin ${DAEMONSETREGISTRYURL}
 
 helm chart pull ${DAEMONSETREGISTRYURL}/${DAEMONSETREGISTRYNAME}:${DAEMONSETREGISTRYVERSION}
+helm chart pull ${COMMONREGISTRYURL}/${COMMONREGISTRYNAME}:${COMMONREGISTRYVERSION}
 
 helm chart export ${DAEMONSETREGISTRYURL}/${DAEMONSETREGISTRYNAME}:${DAEMONSETREGISTRYVERSION}
+helm chart export ${COMMONREGISTRYURL}/${COMMONREGISTRYNAME}:${COMMONREGISTRYVERSION}
 
+helm install --set aws.region=${AWS_REGION} gamelift-common-services ./gamelift-common-services/
 helm install --set aws.region=${AWS_REGION} --set gameliftDaemon.serviceAccount=${GAMELIFTDAEMONSERVICEACCOUNTNAME} --set gameServerGroupName=${GSGNAME} gamelift-daemonset ./gamelift-daemonset/
 
 
