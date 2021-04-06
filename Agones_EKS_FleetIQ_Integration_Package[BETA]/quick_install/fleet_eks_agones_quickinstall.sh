@@ -271,8 +271,6 @@ else
   GSGROLEARN=$(( aws iam create-role --role-name ${GAMELIFTSERVERGROUPROLENAME} --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":["gamelift.amazonaws.com","autoscaling.amazonaws.com"]},"Action":"sts:AssumeRole"}]}' | jq '.Role.Arn' ) 2>&1)
 fi
 
-echo "arn:aws:iam::533223665097:role/${GAMELIFTSERVERGROUPROLENAME}"
-
 aws iam attach-role-policy --role-name ${GAMELIFTSERVERGROUPROLENAME} --policy-arn arn:aws:iam::aws:policy/GameLiftGameServerGroupPolicy
 
 echo "[13/22]Creating the FleetIQ Game Server Group"
@@ -283,7 +281,7 @@ echo ${PUBLICSUBNETIDS}
 cat << EOF > ${GAMESERVERGROUPFILENAME}.json
 {
 "GameServerGroupName": "${GSGNAME}",
-"RoleArn": "arn:aws:iam::533223665097:role/${GAMELIFTSERVERGROUPROLENAME}",
+"RoleArn": "arn:aws:iam::${ACCOUNT_ID}:role/${GAMELIFTSERVERGROUPROLENAME}",
 "MinSize": ${GSGMINSIZE},
 "MaxSize": ${GSGMAXSIZE},
 "LaunchTemplate": {
