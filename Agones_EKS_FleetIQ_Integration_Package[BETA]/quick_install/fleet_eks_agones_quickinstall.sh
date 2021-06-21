@@ -158,7 +158,7 @@ aws ec2 describe-launch-template-versions --region ${AWS_REGION} --launch-templa
 | base64 -d | gunzip > ${BASEUSERDATAFILENAME}.yaml
 
 awk -v var="$(grep -n NODE_LABELS=alpha ./${BASEUSERDATAFILENAME}.yaml | cut -d : -f 1)" 'NR==var {$0="    NODE_LABELS=alpha.eksctl.io/cluster-name='$EKSCLUSTERNAME',alpha.eksctl.io/nodegroup-name=game-servers,role=game-servers"} 1' ${BASEUSERDATAFILENAME}.yaml > templt.yaml
-awk -v var="$(grep -n NODE_TAINTS= ./${BASEUSERDATAFILENAME}.yaml | cut -d : -f 1)" 'NR==var {$0="    NODE_TAINTS=agones.dev/gameservers=true:NoExecute"} 1' templt.yaml > ${MODIFIEDUSERDATAFILENAME}.yaml
+awk -v var="$(grep -m1 -n NODE_TAINTS= ./${BASEUSERDATAFILENAME}.yaml | cut -d : -f 1)" 'NR==var {$0="    NODE_TAINTS=agones.dev/gameservers=true:NoExecute"} 1' templt.yaml > ${MODIFIEDUSERDATAFILENAME}.yaml
 rm templt.yaml
 base64 -w 0 ${MODIFIEDUSERDATAFILENAME}.yaml > ${B64USERDATAFILENAME}
 
