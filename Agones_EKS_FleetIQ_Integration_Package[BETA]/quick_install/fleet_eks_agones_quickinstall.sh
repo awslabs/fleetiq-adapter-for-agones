@@ -600,7 +600,7 @@ helm chart export ${DAEMONSETREGISTRYURL}/${DAEMONSETREGISTRYNAME}:${DAEMONSETRE
 helm chart export ${COMMONREGISTRYURL}/${COMMONREGISTRYNAME}:${COMMONREGISTRYVERSION}
 
 helm install --set aws.region=${AWS_REGION} gamelift-common-services ./gamelift-common-services/
-helm install --set aws.region=${AWS_REGION} --set gameliftDaemon.serviceAccount=${GAMELIFTDAEMONSERVICEACCOUNTNAME} --set gameServerGroupName=${GSGNAME} gamelift-daemonset ./gamelift-daemonset/
+helm install --set aws.region=${AWS_REGION} --set gameliftDaemon.serviceAccount=${GAMELIFTDAEMONSERVICEACCOUNTNAME} --set gameliftDaemon.gameServerGroupName=${GSGNAME} gamelift-daemonset ./gamelift-daemonset/
 
 
 echo "Part 3 complete."
