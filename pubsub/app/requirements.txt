@@ -10,4 +10,4 @@ redis==4.4.4
 requests==2.24.0
 s3transfer==0.3.3
 six==1.15.0
-urllib3==1.26.5
+urllib3==1.26.18
