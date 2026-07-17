@@ -6,7 +6,21 @@ def get_config_dict():
     with open("/etc/fleetiq/fleetiq.conf", "r") as f:
         return json.load(f)
 
-r = redis.from_url('redis://' + os.getenv('REDIS_URL'))
+def _build_redis_url():
+    """Build the Redis connection URL, optionally with AUTH and TLS.
+
+    Backwards compatible: with only REDIS_URL set this behaves exactly as
+    before (redis://host:port, no password). Set REDIS_PASSWORD to enable AUTH
+    and REDIS_TLS=true for an encrypted (rediss://) connection, e.g. ElastiCache
+    with in-transit encryption enabled."""
+    host = os.getenv('REDIS_URL')
+    password = os.getenv('REDIS_PASSWORD')
+    use_tls = os.getenv('REDIS_TLS', '').lower() in ('1', 'true', 'yes')
+    scheme = 'rediss' if use_tls else 'redis'
+    auth = f':{password}@' if password else ''
+    return f'{scheme}://{auth}{host}'
+
+r = redis.from_url(_build_redis_url())
 
 try:
     if r.ping() == True:

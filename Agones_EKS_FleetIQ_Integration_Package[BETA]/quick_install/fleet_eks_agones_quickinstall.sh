@@ -248,7 +248,7 @@ ${NG0SG2},
 }
 ],
 "MetadataOptions": {
-"HttpTokens": "optional",
+"HttpTokens": "required",
 "HttpPutResponseHopLimit": 2
 }
 }
@@ -558,7 +558,10 @@ cat << EOF > ${GAMELIFTDAEMONPOLICYFILENAME}.json
             "Effect": "Allow",
             "Action": [
                 "autoscaling:DescribeAutoScalingInstances",
-                "gamelift:*"
+                "gamelift:RegisterGameServer",
+                "gamelift:UpdateGameServer",
+                "gamelift:ClaimGameServer",
+                "gamelift:DeregisterGameServer"
             ],
             "Resource": "*"
         }

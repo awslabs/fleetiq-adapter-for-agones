@@ -61,3 +61,22 @@ jobs:
         with:
           context: pubsub/app
           push: false
+
+  vuln-scan:
+    name: Vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Scans dependency manifests and Dockerfiles for known CVEs and
+      # misconfigurations. Non-blocking for now (exit-code 0) because the
+      # pinned dependencies predate the Phase 2 upgrades; flip exit-code to 1
+      # once dependencies are current so regressions fail the build.
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+          ignore-unfixed: true

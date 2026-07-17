@@ -58,16 +58,24 @@ infrastructure; Phases 3–4 are hardening and hygiene.
 
 ## Phase 3 — Security hardening
 
-- [ ] Scope IAM down from `gamelift:*` and RBAC `verbs: ["*"]` to the specific
-      actions/resources actually used.
-- [ ] Enforce IMDSv2 (`HttpTokens: required`) in the launch template.
-- [ ] Run containers as non-root; drop `--trusted-host`; add image scanning
-      (e.g. Trivy) in CI.
-- [ ] Enable Redis auth/TLS, or document ElastiCache-with-auth as the supported
-      path.
-- [ ] Parameterize all hardcoded images/endpoints/account IDs through Helm
-      values (currently references a personal Docker Hub account and specific
-      ECR/ElastiCache endpoints).
+- [x] Scope IAM down from `gamelift:*` (install-script daemon policy now lists
+      only Register/Update/Claim/DeregisterGameServer) and RBAC `verbs: ["*"]`
+      (nodes/pods scoped to get/list/watch/patch, pods/eviction to create) in
+      both the raw manifest and the Helm role template.
+- [x] Enforce IMDSv2 (`HttpTokens: required`) in the launch template. Compatible
+      because the metadata client already uses the v2 token flow.
+- [x] Run containers as non-root (uid 1000 + `securityContext` with dropped
+      capabilities and `RuntimeDefault` seccomp on both workloads); drop
+      `--trusted-host` from the Dockerfiles; add a Trivy scan in CI
+      (non-blocking until Phase 2 upgrades land).
+- [x] Support Redis AUTH/TLS via optional `REDIS_PASSWORD` / `REDIS_TLS` env
+      vars in both apps (backward compatible — unset means today's behavior).
+      Recommended supported path: ElastiCache with in-transit encryption + an
+      AUTH token. *(Enabling by default still requires wiring a password secret
+      through the charts — tracked for a follow-up.)*
+- [x] Replace the hardcoded personal Docker Hub images and specific ElastiCache
+      endpoints in the raw manifests with clearly marked placeholders. *(Helm
+      charts were already parameterized via values.)*
 
 ## Phase 4 — Operational hygiene
 

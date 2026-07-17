@@ -17,7 +17,16 @@ spec:
         - operator: Exists
       containers:
       - name: gamelift-daemonset
-        image: jicowan/jicowan_gamelift-daemon
+        # Replace with the image you built and pushed to your own registry.
+        image: <YOUR_REGISTRY>/gamelift-daemon:<TAG>
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
         env:
           - name: "PYTHONUNBUFFERED"
             value: "1"
@@ -28,7 +37,8 @@ spec:
           - name: "GAME_SERVER_GROUP_NAME"
             value: "agones-game-servers"
           - name: "REDIS_URL"
-            value: "gameliftcache.hmhiju.ng.0001.usw2.cache.amazonaws.com:6379"
+            # Replace with your Redis / ElastiCache endpoint.
+            value: "<REDIS_HOST>:6379"
         args:
           - "--failure-threshold=2"
           - "--healthcheck-interval=30"
@@ -40,16 +50,22 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: gamelift-daemonset
+# Scoped to the verbs the daemon actually uses: it reads and patches nodes
+# (cordon/taint), reads and patches pods (add tolerations), evicts pods, and
+# lists Agones gameservers.
 rules:
 - apiGroups: [""]
   resources: ["nodes"]
-  verbs: ["*"]
+  verbs: ["get", "list", "watch", "patch"]
 - apiGroups: [""]
-  resources: ["pods", "pods/eviction"]
-  verbs: ["*"]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "patch"]
+- apiGroups: [""]
+  resources: ["pods/eviction"]
+  verbs: ["create"]
 - apiGroups: ["agones.dev"]
   resources: ["gameservers"]
-  verbs: ["get", "list"]
+  verbs: ["get", "list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

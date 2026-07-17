@@ -16,10 +16,20 @@ spec:
     spec:
       containers:
       - name: pubsubv2
-        image: jicowan/pubsubv2
+        # Replace with the image you built and pushed to your own registry.
+        image: <YOUR_REGISTRY>/pubsubv2:<TAG>
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
         env:
           - name: "REDIS_URL"
-            value: "gameliftcache.hmhiju.ng.0001.usw2.cache.amazonaws.com:6379"
+            # Replace with your Redis / ElastiCache endpoint.
+            value: "<REDIS_HOST>:6379"
           - name: "AWS_REGION"
             value: "us-west-2"
         volumeMounts:
