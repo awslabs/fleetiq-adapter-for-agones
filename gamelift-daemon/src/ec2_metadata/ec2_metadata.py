@@ -159,12 +159,14 @@ class EC2Metadata(BaseLazyObject):
     @property
     def spot_instance_action(self):
         resp = self._get_url(METADATA_URL + "spot/instance-action", allow_404=True)
+        # A 404 means there is no scheduled Spot interruption for this instance.
         if resp.status_code == 404:
             return None
-        elif resp != None and (resp.status_code < 200 or resp >= 300):
-            print(f'Metadata request received http status code {resp.StatusCode}')
-            return resp.status_code
-            
+        # Any other non-2xx is unexpected; surface it as an error.
+        if resp.status_code < 200 or resp.status_code >= 300:
+            resp.raise_for_status()
+        # A 2xx response carries the interruption action/time as its body.
+        return resp.text
 
     @cached_property
     def region(self):
