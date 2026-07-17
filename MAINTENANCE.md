@@ -24,10 +24,13 @@ infrastructure; Phases 3–4 are hardening and hygiene.
 ## Phase 0 — Triage & guardrails
 
 - [ ] Merge or close outstanding Dependabot PRs, starting with the `urllib3`
-      security bump.
-- [ ] Add CI (GitHub Actions) that builds both Docker images and runs a linter.
-- [ ] Choose a single pubsub implementation (Python or Go) and deprecate the
-      other to stop double-maintenance.
+      security bump. *(Requires action on GitHub; not done in-repo.)*
+- [x] Add CI (GitHub Actions) that builds both Docker images and runs a linter
+      (`.github/workflows/ci.yml`). Lint fails only on real errors (syntax /
+      undefined names); style issues are reported but non-blocking for now.
+- [x] Choose a single pubsub implementation: the Python app in `pubsub/app` is
+      the supported path; the Go version in `pubsub/src` is marked experimental
+      and is not built/deployed.
 
 ## Phase 1 — Fix what's already broken *(in progress on `maintenance/phase-1-fixes`)*
 

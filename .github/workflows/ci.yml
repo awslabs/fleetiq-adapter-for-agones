@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [master, "maintenance/**"]
+  pull_request:
+    branches: [master]
+
+jobs:
+  lint-python:
+    name: Lint Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install flake8
+        run: pip install flake8
+
+      # Fail the build only on real errors (syntax errors and undefined names).
+      # The existing code uses a loose style, so style-only checks are reported
+      # but do not fail CI yet.
+      - name: Lint (errors only)
+        run: |
+          flake8 gamelift-daemon/src pubsub/app \
+            --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      - name: Lint (style, non-blocking)
+        run: |
+          flake8 gamelift-daemon/src pubsub/app \
+            --count --exit-zero --max-line-length=127 --statistics
+
+      - name: Byte-compile sources
+        run: |
+          python -m py_compile \
+            gamelift-daemon/src/main.py \
+            gamelift-daemon/src/ec2_metadata/ec2_metadata.py \
+            pubsub/app/main.py
+
+  docker-build:
+    name: Build images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build gamelift-daemon image
+        uses: docker/build-push-action@v6
+        with:
+          context: gamelift-daemon/src
+          push: false
+
+      - name: Build pubsub image
+        uses: docker/build-push-action@v6
+        with:
+          context: pubsub/app
+          push: false
