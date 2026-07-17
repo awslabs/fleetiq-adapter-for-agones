@@ -1,5 +1,6 @@
-# Python image to use.
-FROM python:3.8
+# Python image to use. Pin to a specific minor for reproducibility; for stronger
+# supply-chain guarantees, pin by digest (FROM python:3.12-slim@sha256:...).
+FROM python:3.12-slim
 
 # Set the working directory to /app
 WORKDIR /app

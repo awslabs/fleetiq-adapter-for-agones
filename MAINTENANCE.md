@@ -47,14 +47,34 @@ infrastructure; Phases 3–4 are hardening and hygiene.
 
 ## Phase 2 — Runtime & dependency upgrades
 
-- [ ] Move both images to a supported Python (3.12/3.13) slim base, pinned by
-      digest.
-- [ ] Bump `boto3`/`botocore`, `kubernetes` client, and `redis` to current
-      releases; retest FleetIQ and Agones API calls.
-- [ ] Upgrade Go to a supported version if Go is the chosen pubsub.
-- [ ] Update the install script and charts to a supported EKS version,
-      `registry.k8s.io` (the `k8s.gcr.io` registry is retired), and current
-      cluster-autoscaler / Bitnami Redis chart versions.
+- [x] Move both images to `python:3.12-slim` (was 3.8, EOL). Pinned to a minor;
+      a comment notes digest pinning as the stronger option.
+- [x] Bump dependencies to current releases. `requirements.txt` now lists only
+      direct deps with version floors; pip resolves the rest. Verified via
+      `pip install --dry-run`, which resolves to boto3 1.43.x, kubernetes 36.x,
+      redis 5.x, click 8.x, requests 2.34.x, urllib3 2.x. Also dropped the
+      redundant PyPI `ec2-metadata` pin (the module is vendored) and refactored
+      the vendored module off the `cached-property` backport onto
+      `functools.cached_property`.
+- [ ] Upgrade Go: skipped — the Go pubsub is marked experimental (Phase 0) and
+      is not the supported/deployed path.
+- [~] Install script: switched kubectl to the version-stable upstream
+      `dl.k8s.io` channel, moved cluster-autoscaler to `registry.k8s.io` (the
+      `k8s.gcr.io` registry is retired), and bumped EKS/cluster-autoscaler to
+      1.30. **Not runtime-verified** — the script provisions real AWS infra and
+      must be tested end-to-end against an account before use.
+- [~] Bitnami Redis subchart: left pinned with an in-file TODO. Upgrading needs
+      `helm dependency update` against Bitnami's OCI catalog and re-vendoring
+      the `.tgz`; tracked as a standalone, tested change (also enable auth/TLS).
+
+> Legend: `[x]` done, `[~]` partially done / needs a live test, `[ ]` not done.
+
+### Not verifiable in this environment
+
+- Docker image builds (no Docker here) — CI's `docker-build` job covers them.
+- Kubernetes API calls against the newer `kubernetes` client, and FleetIQ /
+  Agones behavior — need a real cluster.
+- The install script and Helm charts against a live AWS account / `helm`.
 
 ## Phase 3 — Security hardening
 

@@ -1,7 +1,7 @@
 import time
+from functools import cached_property
 
 import requests
-from cached_property import cached_property
 
 __all__ = ("ec2_metadata",)
 
