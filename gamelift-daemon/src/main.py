@@ -111,7 +111,7 @@ async def cordon_and_protect():
             pods = core_v1_client.read_namespaced_pod(name=item['metadata']['name'], namespace=item['metadata']['namespace'])
         except ApiException as e:
             logger.error(f'Exception when calling CoreV1Api->read_namespaced_pod: {e}')
-        tolerations = pods.spec.tolerations
+        tolerations = pods.spec.tolerations or []
         tolerations.append(toleration)
         toleration_body = {
             "spec": {
@@ -133,7 +133,7 @@ async def cordon_and_protect():
         node = core_v1_client.read_node(ec2_metadata.private_hostname)
     except ApiException as e:
         logger.error(f'Exception when calling CoreV1Api->read_node: {e}')
-    taints = node.spec.taints
+    taints = node.spec.taints or []
     taints.append(taint)
     taint_body = {
         "spec": {
@@ -221,7 +221,7 @@ def initialize_game_server(GameServerGroupName: str, GameServerId: str, Instance
         node = core_v1_client.read_node(ec2_metadata.private_hostname)
     except ApiException as e:
         logger.error(f'Exception when calling CoreV1Api->read_node: {e}')
-    taints = node.spec.taints
+    taints = node.spec.taints or []
     taints.append(taint)
     taint_body = {
         "spec": {
