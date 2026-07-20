@@ -102,6 +102,7 @@ async def cordon_and_protect():
         custom_objs = custom_obj_client.list_cluster_custom_object(group='agones.dev', version='v1', plural='gameservers')
     except ApiException as e:
         logger.error(f'Exception when calling CustomObjectsApi->list_cluster_custom_object: {e}')
+        return False
     game_servers = custom_objs['items']
     filtered_list = list(filter(lambda x: x['status']['state']=='Allocated' and x['status']['nodeName']==ec2_metadata.private_hostname, game_servers))
     for item in filtered_list:
@@ -111,6 +112,7 @@ async def cordon_and_protect():
             pods = core_v1_client.read_namespaced_pod(name=item['metadata']['name'], namespace=item['metadata']['namespace'])
         except ApiException as e:
             logger.error(f'Exception when calling CoreV1Api->read_namespaced_pod: {e}')
+            continue
         tolerations = pods.spec.tolerations or []
         tolerations.append(toleration)
         toleration_body = {
@@ -133,6 +135,7 @@ async def cordon_and_protect():
         node = core_v1_client.read_node(ec2_metadata.private_hostname)
     except ApiException as e:
         logger.error(f'Exception when calling CoreV1Api->read_node: {e}')
+        return False
     taints = node.spec.taints or []
     taints.append(taint)
     taint_body = {
@@ -221,6 +224,7 @@ def initialize_game_server(GameServerGroupName: str, GameServerId: str, Instance
         node = core_v1_client.read_node(ec2_metadata.private_hostname)
     except ApiException as e:
         logger.error(f'Exception when calling CoreV1Api->read_node: {e}')
+        return
     taints = node.spec.taints or []
     taints.append(taint)
     taint_body = {
@@ -268,6 +272,8 @@ async def get_game_servers():
             custom_objs = custom_obj_client.list_cluster_custom_object(group='agones.dev', version='v1', plural='gameservers')
         except ApiException as e:
             logger.error(f'Exception when calling CustomObjectsApi->list_cluster_custom_object: {e}')
+            await asyncio.sleep(60)
+            continue
         game_servers = custom_objs['items']
         filtered_list = list(filter(lambda x: x['status']['state']=='Allocated' and x['status']['nodeName']==ec2_metadata.private_hostname, game_servers))
         logger.info(f'There are {len(filtered_list)} Allocated game servers running on this instance')
