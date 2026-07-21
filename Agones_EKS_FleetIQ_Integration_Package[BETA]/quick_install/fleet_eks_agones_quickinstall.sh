@@ -42,7 +42,10 @@ echo "Installing Kubernetes tools"
 
 echo "[1/22] Installing kubectl"
 
-sudo curl --silent --location -o /usr/local/bin/kubectl https://amazon-eks.s3.us-west-2.amazonaws.com/1.17.7/2020-07-08/bin/linux/amd64/kubectl
+# Install kubectl from the official upstream release channel (version-stable;
+# resolves the latest patch of the requested minor). Keep this minor aligned
+# with the EKS cluster version set below.
+sudo curl --silent --location -o /usr/local/bin/kubectl "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable-1.30.txt)/bin/linux/amd64/kubectl"
 sudo chmod +x /usr/local/bin/kubectl
 
 echo "[2/22] Updating awscli"
@@ -106,7 +109,7 @@ kind: ClusterConfig
 metadata:
   name: ${EKSCLUSTERNAME}
   region: ${AWS_REGION}
-  version: "1.18"
+  version: "1.30"
 
 availabilityZones: ${AVAILABILITYZONES}
 
@@ -248,7 +251,7 @@ ${NG0SG2},
 }
 ],
 "MetadataOptions": {
-"HttpTokens": "optional",
+"HttpTokens": "required",
 "HttpPutResponseHopLimit": 2
 }
 }
@@ -493,7 +496,9 @@ spec:
     spec:
       serviceAccountName: cluster-autoscaler
       containers:
-        - image: k8s.gcr.io/autoscaling/cluster-autoscaler:v1.18.3
+          # Keep the cluster-autoscaler minor aligned with the EKS version.
+          # The k8s.gcr.io registry is retired; images now live on registry.k8s.io.
+        - image: registry.k8s.io/autoscaling/cluster-autoscaler:v1.30.0
           name: cluster-autoscaler
           resources:
             limits:
@@ -558,7 +563,10 @@ cat << EOF > ${GAMELIFTDAEMONPOLICYFILENAME}.json
             "Effect": "Allow",
             "Action": [
                 "autoscaling:DescribeAutoScalingInstances",
-                "gamelift:*"
+                "gamelift:RegisterGameServer",
+                "gamelift:UpdateGameServer",
+                "gamelift:ClaimGameServer",
+                "gamelift:DeregisterGameServer"
             ],
             "Resource": "*"
         }

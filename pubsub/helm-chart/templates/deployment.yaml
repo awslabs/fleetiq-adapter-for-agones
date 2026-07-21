@@ -17,6 +17,14 @@ spec:
       containers:
       - name: pubsubv2
         image: "{{ .Values.container.image}}:{{ .Values.container.tag | default "latest" }}"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
         env:
           - name: "REDIS_URL"
             value: {{ .Release.Name }}-redis-master.default.svc.cluster.local

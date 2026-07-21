@@ -17,6 +17,14 @@ spec:
       containers:
       - name: gamelift-daemon
         image: "{{ .Values.container.image}}:{{ .Values.container.tag | default "latest" }}"
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+          seccompProfile:
+            type: RuntimeDefault
         env:
           - name: "PYTHONUNBUFFERED"
             value: "1"

@@ -1,13 +1,5 @@
-boto3==1.14.51
-botocore==1.17.51
-certifi==2023.7.22
-chardet==3.0.4
-docutils==0.15.2
-idna==2.10
-jmespath==0.10.0
-python-dateutil==2.8.1
-redis==4.4.4
-requests==2.24.0
-s3transfer==0.3.3
-six==1.15.0
-urllib3==1.26.5
+# Direct runtime dependencies only; pip resolves the rest (botocore,
+# s3transfer, urllib3, etc.). Version floors keep us on supported,
+# security-patched releases. CI builds the image and Trivy scans for CVEs.
+boto3>=1.34,<2
+redis>=5,<6

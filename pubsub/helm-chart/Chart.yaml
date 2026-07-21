@@ -1,5 +1,10 @@
 apiVersion: v2
 appVersion: 0.1.0
+# TODO(maintenance): the Bitnami Redis subchart is pinned to an old version and
+# vendored under charts/redis-10.8.1.tgz. Upgrading requires re-running
+# `helm dependency update` against Bitnami's current catalog (their charts moved
+# to the OCI registry oci://registry-1.docker.io/bitnamicharts), then re-vendoring
+# the .tgz and enabling auth/TLS. Do this as a tested, standalone change.
 dependencies:
 - name: redis
   repository: https://charts.bitnami.com/bitnami

@@ -2,13 +2,19 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: {{ .Release.Name }}
+# Scoped to the verbs the daemon actually uses: it reads and patches nodes
+# (cordon/taint), reads and patches pods (add tolerations), evicts pods, and
+# lists Agones gameservers.
 rules:
 - apiGroups: [""]
   resources: ["nodes"]
-  verbs: ["*"]
+  verbs: ["get", "list", "watch", "patch"]
 - apiGroups: [""]
-  resources: ["pods", "pods/eviction"]
-  verbs: ["*"]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch", "patch"]
+- apiGroups: [""]
+  resources: ["pods/eviction"]
+  verbs: ["create"]
 - apiGroups: ["agones.dev"]
   resources: ["gameservers"]
-  verbs: ["get", "list"]
+  verbs: ["get", "list", "watch"]
